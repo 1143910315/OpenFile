@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import com.windows.h.openfile.ui.theme.OpenFileTheme
+import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
@@ -108,4 +109,25 @@ fun GreetingPreview() {
     OpenFileTheme {
         Greeting("Android")
     }
+}
+fun getRootPermission(): Boolean {
+    var process: Process? = null
+    var os: DataOutputStream? = null
+    try {
+        process = Runtime.getRuntime().exec("su")
+        os = DataOutputStream(process.outputStream)
+        os.writeBytes("echo \"test\" >/system/sd/temporary.txt\n")
+        os.writeBytes("exit\n")
+        os.flush()
+        process.waitFor()
+    } catch (e: Exception) {
+        return false
+    } finally {
+        try {
+            os?.close()
+            process?.destroy()
+        } catch (e: Exception) {
+        }
+    }
+    return true
 }
