@@ -1,6 +1,9 @@
 package com.windows.h.openfile
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
@@ -24,6 +27,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        getRootPermission()
+        takeScreenshot(this)
         val button = findViewById<Button>(R.id.button)
         val button1 = findViewById<Button>(R.id.button2)
         val editText = findViewById<EditText>(R.id.editTextTextMultiLine)
@@ -112,22 +117,42 @@ fun GreetingPreview() {
 }
 fun getRootPermission(): Boolean {
     var process: Process? = null
-    var os: DataOutputStream? = null
     try {
         process = Runtime.getRuntime().exec("su")
-        os = DataOutputStream(process.outputStream)
-        os.writeBytes("echo \"test\" >/system/sd/temporary.txt\n")
-        os.writeBytes("exit\n")
-        os.flush()
+        DataOutputStream(process.outputStream).use {
+            it.writeBytes("echo \"test\" >/system/sd/temporary.txt\n")
+            it.writeBytes("exit\n")
+            it.flush()
+        }
         process.waitFor()
     } catch (e: Exception) {
         return false
     } finally {
         try {
-            os?.close()
             process?.destroy()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
         }
     }
     return true
+}
+fun takeScreenshot(context: Context): Bitmap? {
+    var bitmap: Bitmap? = null
+    if (getRootPermission()) {
+        try {
+            val process = Runtime.getRuntime().exec("su")
+            val os = DataOutputStream(process.outputStream)
+            os.writeBytes("screencap -p /sdcard/temp.png\n")
+            os.writeBytes("exit\n")
+            os.flush()
+            process.waitFor()
+            val file = File(context.getExternalFilesDir(null), "temp.png")
+            if (file.exists()) {
+                bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                file.delete()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    return bitmap
 }

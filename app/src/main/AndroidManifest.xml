@@ -37,6 +37,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/filepath" />
         </provider>
+        <service android:name="com.windows.h.openfile.service.Screenshot" />
     </application>
 
 </manifest>
