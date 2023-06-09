@@ -50,11 +50,12 @@ class MainActivity : ComponentActivity() {
         button1.setOnClickListener {
             fileUri?.also { url ->
                 val documentFile = DocumentFile.fromTreeUri(this, url)
-                val stringBuilder = StringBuilder()
                 val find = documentFile?.listFiles()?.find { file ->
                     file.name?.endsWith(".png", true) ?: false
                 }
                 find?.also {
+
+
                     val intent = Intent(Intent.ACTION_VIEW)
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION

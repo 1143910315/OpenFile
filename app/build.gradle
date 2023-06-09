@@ -18,6 +18,7 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+        resValue("string", "app_private_directory", "picture_dir")
     }
 
     buildTypes {
