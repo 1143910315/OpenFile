@@ -1,24 +1,38 @@
 package com.windows.h.openfile.service
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Binder
+import android.os.Environment
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
+import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.util.Timer
+import java.util.TimerTask
 
 class Screenshot : Service() {
 
-    private var isRunning = false
     private var fileUri: Uri? = null
     private val binder = MyBinder()
     private var step = 0
     private var find: DocumentFile? = null
     private var fileSize: Long = 0
+    private lateinit var context: Context
+    private lateinit var timer: Timer
+    private lateinit var handler: Handler
 
     inner class MyBinder : Binder() {
         fun getService(): Screenshot {
@@ -26,27 +40,32 @@ class Screenshot : Service() {
         }
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        context = applicationContext
+        timer = Timer()
+        handler = Handler(Looper.getMainLooper())
+    }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // 获取传递的 Uri 参数
         val uriString = intent?.getStringExtra("uri")
         uriString?.also {
             fileUri = Uri.parse(uriString)
         }
-        isRunning = true
-        Thread {
-            while (isRunning) {
+
+        timer.schedule(object : TimerTask() {
+            override fun run() {
                 // 执行处理代码
                 doSomething()
                 sendPicture()
-                Thread.sleep(1000)
             }
-        }.start()
+        }, 0, 1000)
         return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        isRunning = false
+        timer.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder {
@@ -100,6 +119,14 @@ class Screenshot : Service() {
                     fileSize = tempFind.length()
                 }
             }
+        } else if (step == 1) {
+            handler.post {
+                Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
+                //Toast.makeText(context, getForegroundPackageName(), Toast.LENGTH_LONG).show()
+            }
+            step += 20
+        } else {
+            step--
         }
     }
 
@@ -110,13 +137,45 @@ class Screenshot : Service() {
 
 fun takeScreenshot() {
     try {
+        val path = Environment.getExternalStorageDirectory().path
         val process = Runtime.getRuntime().exec("su")
         val os = DataOutputStream(process.outputStream)
-        os.writeBytes("screencap -p \"/sdcard/\\\$MuMu12Shared/temp3.png\"\n")
+        os.writeBytes("screencap -p \"" + path + "/\\\$MuMu12Shared/temp3.png\"\n")
         os.writeBytes("exit\n")
         os.flush()
         process.waitFor()
     } catch (e: Exception) {
         e.printStackTrace()
     }
+}
+
+fun getForegroundPackageName(): String? {
+    var process: Process? = null
+    var inputStream: InputStream? = null
+    var result = ""
+
+    try {
+        process = Runtime.getRuntime().exec("su -c \"dumpsys window windows | grep mCurrentFocus\"")
+        inputStream = process.inputStream
+        val bufferedReader = BufferedReader(InputStreamReader(inputStream))
+
+        var line: String? = null
+        while (bufferedReader.readLine().also { line = it } != null) {
+            result += line
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    } finally {
+        try {
+            inputStream?.close()
+            process?.destroy()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // 解析包名
+    val packageNameRegex = ".*\\s+(\\S+)/(\\S+)}.*".toRegex()
+    val matchResult = packageNameRegex.find(result)
+    return matchResult?.groupValues?.get(2)
 }
