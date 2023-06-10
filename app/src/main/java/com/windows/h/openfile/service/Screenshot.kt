@@ -1,5 +1,7 @@
 package com.windows.h.openfile.service
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -9,11 +11,10 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
-import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.UiDevice
+import com.windows.h.openfile.R
 import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.File
@@ -33,6 +34,14 @@ class Screenshot : Service() {
     private lateinit var context: Context
     private lateinit var timer: Timer
     private lateinit var handler: Handler
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var notificationChannel: NotificationChannel
+
+    companion object {
+        private const val NOTIFICATION_ID = 1
+        private const val CHANNEL_ID = "my_service_channel"
+        private const val CHANNEL_NAME = "My Service Channel"
+    }
 
     inner class MyBinder : Binder() {
         fun getService(): Screenshot {
@@ -45,8 +54,24 @@ class Screenshot : Service() {
         context = applicationContext
         timer = Timer()
         handler = Handler(Looper.getMainLooper())
+
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationChannel = NotificationChannel(
+            CHANNEL_ID,
+            CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+        notificationManager.createNotificationChannel(notificationChannel)
     }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle("My Service")
+            .setContentText("Service is running...")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .build()
+
+        startForeground(NOTIFICATION_ID, notification)
         // 获取传递的 Uri 参数
         val uriString = intent?.getStringExtra("uri")
         uriString?.also {
@@ -121,7 +146,13 @@ class Screenshot : Service() {
             }
         } else if (step == 1) {
             handler.post {
-                Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setContentTitle("My Service")
+                    .setContentText(getForegroundPackageName())
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .build()
+                notificationManager.notify(NOTIFICATION_ID, notification)
+                //Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
                 //Toast.makeText(context, getForegroundPackageName(), Toast.LENGTH_LONG).show()
             }
             step += 20
@@ -159,7 +190,7 @@ fun getForegroundPackageName(): String? {
         inputStream = process.inputStream
         val bufferedReader = BufferedReader(InputStreamReader(inputStream))
 
-        var line: String? = null
+        var line: String
         while (bufferedReader.readLine().also { line = it } != null) {
             result += line
         }
@@ -173,7 +204,6 @@ fun getForegroundPackageName(): String? {
             e.printStackTrace()
         }
     }
-
     // 解析包名
     val packageNameRegex = ".*\\s+(\\S+)/(\\S+)}.*".toRegex()
     val matchResult = packageNameRegex.find(result)
