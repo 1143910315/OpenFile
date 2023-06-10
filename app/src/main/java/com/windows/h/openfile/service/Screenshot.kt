@@ -11,6 +11,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
@@ -23,6 +24,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Timer
 import java.util.TimerTask
+import java.util.regex.Pattern
 
 class Screenshot : Service() {
 
@@ -145,15 +147,19 @@ class Screenshot : Service() {
                 }
             }
         } else if (step == 1) {
+            //handler.post {
+            //    val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            //        .setContentTitle("My Service")
+            //        .setContentText(getForegroundPackageName())
+            //        .setSmallIcon(R.mipmap.ic_launcher)
+            //        .build()
+            //    notificationManager.notify(NOTIFICATION_ID, notification)
+            //    //Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
+            //    //Toast.makeText(context, getForegroundPackageName(), Toast.LENGTH_LONG).show()
+            //}
+            val t = getForegroundPackageName() ?: "错误"
             handler.post {
-                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                    .setContentTitle("My Service")
-                    .setContentText(getForegroundPackageName())
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .build()
-                notificationManager.notify(NOTIFICATION_ID, notification)
-                //Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
-                //Toast.makeText(context, getForegroundPackageName(), Toast.LENGTH_LONG).show()
+                Toast.makeText(context, t, Toast.LENGTH_LONG).show()
             }
             step += 20
         } else {
@@ -171,7 +177,7 @@ fun takeScreenshot() {
         val path = Environment.getExternalStorageDirectory().path
         val process = Runtime.getRuntime().exec("su")
         val os = DataOutputStream(process.outputStream)
-        os.writeBytes("screencap -p \"" + path + "/\\\$MuMu12Shared/temp3.png\"\n")
+        os.writeBytes("screencap -p \"$path/\\\$MuMu12Shared/temp3.png\"\n")
         os.writeBytes("exit\n")
         os.flush()
         process.waitFor()
@@ -180,21 +186,35 @@ fun takeScreenshot() {
     }
 }
 
-fun getForegroundPackageName(): String? {
+fun getForegroundPackageName2(): String {
     var process: Process? = null
     var inputStream: InputStream? = null
-    var result = ""
-
+    var result = "default"
     try {
-        process = Runtime.getRuntime().exec("su -c \"dumpsys window windows | grep mCurrentFocus\"")
+        process = Runtime.getRuntime().exec("su -c \"dumpsys window windows\"\nexit\n")
+        //process = Runtime.getRuntime().exec("su -c \"dumpsys window windows | grep mCurrentFocus\"")
+        if (process == null) {
+            return "process==null"
+        }
         inputStream = process.inputStream
+        if (inputStream == null) {
+            process = Runtime.getRuntime()
+                .exec("su -c \"dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'\"")
+            inputStream = process.inputStream
+            if (inputStream == null) {
+                return "inputStream==null"
+            }
+        }
         val bufferedReader = BufferedReader(InputStreamReader(inputStream))
 
-        var line: String
+        var line: String?
         while (bufferedReader.readLine().also { line = it } != null) {
             result += line
         }
     } catch (e: Exception) {
+        e.message?.also {
+            result = it
+        }
         e.printStackTrace()
     } finally {
         try {
@@ -205,7 +225,36 @@ fun getForegroundPackageName(): String? {
         }
     }
     // 解析包名
-    val packageNameRegex = ".*\\s+(\\S+)/(\\S+)}.*".toRegex()
-    val matchResult = packageNameRegex.find(result)
-    return matchResult?.groupValues?.get(2)
+    //val packageNameRegex = ".*\\s+(\\S+)/(\\S+)}.*".toRegex()
+    //val matchResult = packageNameRegex.find(result)
+    //return matchResult?.groupValues?.get(2)
+    return result
+}
+
+fun getForegroundPackageName3(): String? {
+    val command = "dumpsys window windows | grep mCurrentFocus"
+    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+    val reader = BufferedReader(InputStreamReader(process.inputStream))
+    var line: String?
+
+    while (reader.readLine().also { line = it } != null) {
+        val packageNameMatcher = line?.let {
+            Pattern.compile("\\bpackage\\s+([\\w.]+)\\b").matcher(
+                it
+            )
+        }
+        if (packageNameMatcher != null) {
+            if (packageNameMatcher.find()) {
+                return packageNameMatcher.group(1)
+            }
+        }
+    }
+    return "null"
+}
+
+fun getForegroundPackageName(): String? {
+    val command = "dumpsys window windows | grep mCurrentFocus"
+    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+    val reader = BufferedReader(InputStreamReader(process.inputStream))
+    return reader.readLine()
 }

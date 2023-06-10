@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
@@ -21,9 +22,11 @@ import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import com.windows.h.openfile.service.Screenshot
 import com.windows.h.openfile.ui.theme.OpenFileTheme
+import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStreamReader
 
 
 class MainActivity : ComponentActivity() {
@@ -54,7 +57,7 @@ class MainActivity : ComponentActivity() {
         val uriString = sharedPreferences.getString(PREF_URI, null)
         uriString?.also {
             fileUri = Uri.parse(it)
-        // 将 Uri 作为额外数据传递给 Service
+            // 将 Uri 作为额外数据传递给 Service
             intent.putExtra("uri", fileUri.toString())
         }
         val intent = Intent(this, Screenshot::class.java)
@@ -64,7 +67,10 @@ class MainActivity : ComponentActivity() {
         takeScreenshot(this)
         val button = findViewById<Button>(R.id.button)
         val button1 = findViewById<Button>(R.id.button2)
+        val button2 = findViewById<Button>(R.id.button3)
+        val button3 = findViewById<Button>(R.id.button4)
         val editText = findViewById<EditText>(R.id.editTextTextMultiLine)
+        val editText1 = findViewById<EditText>(R.id.editTextTextMultiLine2)
         val requestPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { treeUri ->
@@ -135,6 +141,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        button2.setOnClickListener {
+            editText1.setText(dumpsysWindow())
+        }
+        button3.setOnClickListener {
+            editText1.setText(dumpsysActivity())
+        }
     }
 
     override fun onDestroy() {
@@ -146,7 +158,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun sendDataToService(data: String) {
+    private fun sendDataToService(data: String) {
         myService?.processData(data)
     }
 }
@@ -207,4 +219,38 @@ fun takeScreenshot(context: Context): Bitmap? {
         }
     }
     return bitmap
+}
+fun dumpsysWindow(): String {
+    val process = Runtime.getRuntime().exec("su")
+    val outputStream = process.outputStream
+    val inputStream = process.inputStream
+    val errorStream = process.errorStream
+    outputStream.write("dumpsys window windows\n".toByteArray())
+    outputStream.write("exit\n".toByteArray())
+    outputStream.flush()
+    outputStream.close()
+    val reader = BufferedReader(InputStreamReader(inputStream))
+    var line: String?
+    val stringBuilder = StringBuilder()
+    while (reader.readLine().also { line = it } != null) {
+        stringBuilder.append(line).append("\n")
+    }
+    return stringBuilder.toString()
+}
+fun dumpsysActivity(): String {
+    val process = Runtime.getRuntime().exec("su")
+    val outputStream = process.outputStream
+    val inputStream = process.inputStream
+    val errorStream = process.errorStream
+    outputStream.write("dumpsys activity\n".toByteArray())
+    outputStream.write("exit\n".toByteArray())
+    outputStream.flush()
+    outputStream.close()
+    val reader = BufferedReader(InputStreamReader(inputStream))
+    var line: String?
+    val stringBuilder = StringBuilder()
+    while (reader.readLine().also { line = it } != null) {
+        stringBuilder.append(line).append("\n")
+    }
+    return stringBuilder.toString()
 }
