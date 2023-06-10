@@ -1,11 +1,14 @@
 package com.windows.h.openfile
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
 import android.widget.Button
 import android.widget.EditText
 import androidx.activity.ComponentActivity
@@ -16,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import com.windows.h.openfile.service.Screenshot
 import com.windows.h.openfile.ui.theme.OpenFileTheme
 import java.io.DataOutputStream
 import java.io.File
@@ -23,10 +27,39 @@ import java.io.FileOutputStream
 
 
 class MainActivity : ComponentActivity() {
-    var fileUri: Uri? = null
+    private val PREF_URI = "uri"
+    private var fileUri: Uri? = null
+    private var myService: Screenshot? = null
+    private var isServiceBound = false
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as Screenshot.MyBinder
+            myService = binder.getService()
+            isServiceBound = true
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            myService = null
+            isServiceBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 获取 SharedPreferences 对象
+        val sharedPreferences = getSharedPreferences(PREF_URI, Context.MODE_PRIVATE)
+        // 读取保存的 Uri
+        val uriString = sharedPreferences.getString(PREF_URI, null)
+        uriString?.also {
+            fileUri = Uri.parse(it)
+        // 将 Uri 作为额外数据传递给 Service
+            intent.putExtra("uri", fileUri.toString())
+        }
+        val intent = Intent(this, Screenshot::class.java)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        startService(intent)
         getRootPermission()
         takeScreenshot(this)
         val button = findViewById<Button>(R.id.button)
@@ -41,6 +74,11 @@ class MainActivity : ComponentActivity() {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
                 fileUri = treeUri
+                sendDataToService(fileUri.toString())
+                // 保存 Uri
+                val editor = sharedPreferences.edit()
+                editor.putString(PREF_URI, fileUri.toString())
+                editor.apply()
                 val documentFile = DocumentFile.fromTreeUri(this, treeUri)
                 val stringBuilder = StringBuilder()
                 documentFile?.listFiles()?.forEach { file ->
@@ -84,20 +122,32 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
-
-                    val intent = Intent(Intent.ACTION_VIEW)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    val intent1 = Intent(Intent.ACTION_VIEW)
+                    //intent1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent1.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     val uri: Uri = FileProvider.getUriForFile(
                         this,
                         "com.windows.h.openfile.file.provider",
                         file2
                     )
-                    intent.setDataAndType(uri, "image/png")
-                    startActivity(intent)
+                    intent1.setDataAndType(uri, "image/png")
+                    startActivity(intent1)
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 解绑 Service
+        if (isServiceBound) {
+            unbindService(serviceConnection)
+            isServiceBound = false
+        }
+    }
+
+    fun sendDataToService(data: String) {
+        myService?.processData(data)
     }
 }
 
@@ -115,6 +165,7 @@ fun GreetingPreview() {
         Greeting("Android")
     }
 }
+
 fun getRootPermission(): Boolean {
     var process: Process? = null
     try {
@@ -135,6 +186,7 @@ fun getRootPermission(): Boolean {
     }
     return true
 }
+
 fun takeScreenshot(context: Context): Bitmap? {
     var bitmap: Bitmap? = null
     if (getRootPermission()) {
