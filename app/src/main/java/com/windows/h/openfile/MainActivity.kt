@@ -4,14 +4,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
@@ -23,20 +20,19 @@ import androidx.documentfile.provider.DocumentFile
 import com.windows.h.openfile.service.Screenshot
 import com.windows.h.openfile.ui.theme.OpenFileTheme
 import java.io.BufferedReader
-import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStreamReader
 
 
 class MainActivity : ComponentActivity() {
-    private val PREF_URI = "uri"
+    private val prefUri = "uri"
     private var fileUri: Uri? = null
     private var myService: Screenshot? = null
     private var isServiceBound = false
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as Screenshot.MyBinder
+            val binder = service as Screenshot.ServiceBinder
             myService = binder.getService()
             isServiceBound = true
         }
@@ -52,19 +48,13 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
 
         // 获取 SharedPreferences 对象
-        val sharedPreferences = getSharedPreferences(PREF_URI, Context.MODE_PRIVATE)
+        val sharedPreferences = getSharedPreferences(prefUri, Context.MODE_PRIVATE)
         // 读取保存的 Uri
-        val uriString = sharedPreferences.getString(PREF_URI, null)
-        uriString?.also {
-            fileUri = Uri.parse(it)
-            // 将 Uri 作为额外数据传递给 Service
-            intent.putExtra("uri", fileUri.toString())
-        }
+        val uriString = sharedPreferences.getString(prefUri, null)
         val intent = Intent(this, Screenshot::class.java)
+        intent.putExtra("uri", uriString)
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         startService(intent)
-        getRootPermission()
-        takeScreenshot(this)
         val button = findViewById<Button>(R.id.button)
         val button1 = findViewById<Button>(R.id.button2)
         val button2 = findViewById<Button>(R.id.button3)
@@ -83,7 +73,7 @@ class MainActivity : ComponentActivity() {
                 sendDataToService(fileUri.toString())
                 // 保存 Uri
                 val editor = sharedPreferences.edit()
-                editor.putString(PREF_URI, fileUri.toString())
+                editor.putString(prefUri, fileUri.toString())
                 editor.apply()
                 val documentFile = DocumentFile.fromTreeUri(this, treeUri)
                 val stringBuilder = StringBuilder()
@@ -104,40 +94,29 @@ class MainActivity : ComponentActivity() {
                     file.name?.endsWith(".png", true) ?: false
                 }
                 find?.also {
-                    //val file = File(url.path + "/" + it.name)
                     val file1 = File(this.filesDir, "picture_dir")
                     file1.mkdir()
                     val file2 = File(this.filesDir, "picture_dir/" + it.name)
-                    //val resultUri = Uri.fromFile(file1)
-                    //val aDocumentFile = DocumentFile.fromTreeUri(this, resultUri)
                     try {
-                        //val inputStream = FileInputStream(file)
-                        val inputStream = contentResolver.openInputStream(it.uri)
-                        val outputStream = FileOutputStream(file2)
-                        //val fileName = file.name
-                        //val newFile = aDocumentFile?.createFile("image/png", fileName)
-                        //val outputStream = newFile?.let { it1 ->
-                        //    this.contentResolver.openOutputStream(
-                        //        it1.uri)
-                        //}
-                        inputStream?.use { input ->
-                            outputStream.use { output ->
+                        contentResolver.openInputStream(it.uri)?.use { input ->
+                            FileOutputStream(file2).use { output ->
                                 input.copyTo(output)
                             }
                         }
+                        startActivity(
+                            Intent(Intent.ACTION_VIEW)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                .setDataAndType(
+                                    FileProvider.getUriForFile(
+                                        this,
+                                        "com.windows.h.openfile.file.provider",
+                                        file2
+                                    ), "image/png"
+                                )
+                        )
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
-                    val intent1 = Intent(Intent.ACTION_VIEW)
-                    //intent1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent1.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    val uri: Uri = FileProvider.getUriForFile(
-                        this,
-                        "com.windows.h.openfile.file.provider",
-                        file2
-                    )
-                    intent1.setDataAndType(uri, "image/png")
-                    startActivity(intent1)
                 }
             }
         }
@@ -145,8 +124,8 @@ class MainActivity : ComponentActivity() {
             editText1.setText(dumpsysWindow())
         }
         button3.setOnClickListener {
-            //editText1.setText(dumpsysActivity())
-            editText1.setText(getForegroundPackageName() ?: "xx")
+            editText1.setText(dumpsysActivity())
+            //editText1.setText(getForegroundPackageName() ?: "xx")
         }
     }
 
@@ -179,104 +158,64 @@ fun GreetingPreview() {
     }
 }
 
-fun getRootPermission(): Boolean {
-    var process: Process? = null
+fun dumpsysWindow(): String {
     try {
-        process = Runtime.getRuntime().exec("su")
-        DataOutputStream(process.outputStream).use {
-            it.writeBytes("echo \"test\" >/system/sd/temporary.txt\n")
-            it.writeBytes("exit\n")
-            it.flush()
+        val process = Runtime.getRuntime().exec("su")
+        process.outputStream.use { output ->
+            output.write("dumpsys window windows\n".toByteArray())
+            output.write("exit\n".toByteArray())
+        }
+        val stringBuilder = StringBuilder()
+        BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                stringBuilder.append(line).append("\n")
+            }
         }
         process.waitFor()
+        process.destroy()
+        return stringBuilder.toString()
     } catch (e: Exception) {
-        return false
-    } finally {
-        try {
-            process?.destroy()
-        } catch (_: Exception) {
-        }
+        return e.toString()
     }
-    return true
-}
-
-fun takeScreenshot(context: Context): Bitmap? {
-    var bitmap: Bitmap? = null
-    if (getRootPermission()) {
-        try {
-            val process = Runtime.getRuntime().exec("su")
-            val os = DataOutputStream(process.outputStream)
-            os.writeBytes("screencap -p /sdcard/temp.png\n")
-            os.writeBytes("exit\n")
-            os.flush()
-            process.waitFor()
-            val file = File(context.getExternalFilesDir(null), "temp.png")
-            if (file.exists()) {
-                bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                file.delete()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-    return bitmap
-}
-
-fun dumpsysWindow(): String {
-    val process = Runtime.getRuntime().exec("su")
-    val outputStream = process.outputStream
-    val inputStream = process.inputStream
-    val errorStream = process.errorStream
-    outputStream.write("dumpsys window windows\n".toByteArray())
-    outputStream.write("exit\n".toByteArray())
-    outputStream.flush()
-    outputStream.close()
-    val reader = BufferedReader(InputStreamReader(inputStream))
-    var line: String?
-    val stringBuilder = StringBuilder()
-    while (reader.readLine().also { line = it } != null) {
-        stringBuilder.append(line).append("\n")
-    }
-    return stringBuilder.toString()
 }
 
 fun dumpsysActivity(): String {
     val process = Runtime.getRuntime().exec("su")
-    val outputStream = process.outputStream
-    val inputStream = process.inputStream
-    val errorStream = process.errorStream
-    outputStream.write("dumpsys activity\n".toByteArray())
-    outputStream.write("exit\n".toByteArray())
-    outputStream.flush()
-    outputStream.close()
-    val reader = BufferedReader(InputStreamReader(inputStream))
-    var line: String?
-    val stringBuilder = StringBuilder()
-    while (reader.readLine().also { line = it } != null) {
-        stringBuilder.append(line).append("\n")
+    process.outputStream.use { output ->
+        output.write("dumpsys activity\n".toByteArray())
+        output.write("exit\n".toByteArray())
     }
+    val stringBuilder = StringBuilder()
+    process.inputStream.use { input ->
+        val reader = BufferedReader(InputStreamReader(input))
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            stringBuilder.append(line).append("\n")
+        }
+    }
+    process.waitFor()
+    process.destroy()
     return stringBuilder.toString()
 }
 
 fun getForegroundPackageName(): String? {
     try {
         val process = Runtime.getRuntime().exec("su")
-        val outputStream = process.outputStream
-        val inputStream = process.inputStream
-        outputStream.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
-        outputStream.flush()
-        outputStream.close()
-        val reader = BufferedReader(InputStreamReader(inputStream))
-        var line: String?
-        val stringBuilder = StringBuilder()
-        while (reader.readLine().also { line = it } != null) {
-            stringBuilder.append(line).append("\n")
+        process.outputStream.use { output ->
+            output.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
         }
-        //return stringBuilder.toString()
+        val stringBuilder = StringBuilder()
+        BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                stringBuilder.append(line).append("\n")
+            }
+        }
+        process.waitFor()
+        process.destroy()
         // 解析包名
-        val packageNameRegex = ".*\\s+(\\S+)/(\\S+).*".toRegex()
-        val matchResult = packageNameRegex.find(stringBuilder.toString())
-        return matchResult?.groupValues?.get(1)
+        return ".*\\s+(\\S+)/(\\S+).*".toRegex().find(stringBuilder.toString())?.groupValues?.get(1)
     } catch (e: Exception) {
         return e.toString()
     }
