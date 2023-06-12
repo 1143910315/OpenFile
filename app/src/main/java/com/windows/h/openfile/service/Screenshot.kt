@@ -157,9 +157,21 @@ class Screenshot : Service() {
             //    //Toast.makeText(context, "开始测试", Toast.LENGTH_LONG).show()
             //    //Toast.makeText(context, getForegroundPackageName(), Toast.LENGTH_LONG).show()
             //}
-            val t = getForegroundPackageName() ?: "错误"
-            handler.post {
-                Toast.makeText(context, t, Toast.LENGTH_LONG).show()
+
+            //val t = getForegroundPackageName() ?: "错误"
+            //handler.post {
+            //    Toast.makeText(context, t, Toast.LENGTH_LONG).show()
+            //}
+            val name = getForegroundPackageName()
+            name?.also { packName ->
+                handler.post {
+                    val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setContentTitle("My Service")
+                        .setContentText(packName)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .build()
+                    notificationManager.notify(NOTIFICATION_ID, notification)
+                }
             }
             step += 20
         } else {
@@ -252,9 +264,33 @@ fun getForegroundPackageName3(): String? {
     return "null"
 }
 
-fun getForegroundPackageName(): String? {
+fun getForegroundPackageName4(): String? {
     val command = "dumpsys window windows | grep mCurrentFocus"
     val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
     val reader = BufferedReader(InputStreamReader(process.inputStream))
     return reader.readLine()
+}
+
+fun getForegroundPackageName(): String? {
+    try {
+        val process = Runtime.getRuntime().exec("su")
+        val outputStream = process.outputStream
+        val inputStream = process.inputStream
+        outputStream.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
+        outputStream.flush()
+        outputStream.close()
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        var line: String?
+        val stringBuilder = StringBuilder()
+        while (reader.readLine().also { line = it } != null) {
+            stringBuilder.append(line).append("\n")
+        }
+        //return stringBuilder.toString()
+        // 解析包名
+        val packageNameRegex = ".*\\s+(\\S+)/(\\S+).*".toRegex()
+        val matchResult = packageNameRegex.find(stringBuilder.toString())
+        return matchResult?.groupValues?.get(1)
+    } catch (e: Exception) {
+        return e.toString()
+    }
 }

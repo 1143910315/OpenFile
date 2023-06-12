@@ -145,7 +145,8 @@ class MainActivity : ComponentActivity() {
             editText1.setText(dumpsysWindow())
         }
         button3.setOnClickListener {
-            editText1.setText(dumpsysActivity())
+            //editText1.setText(dumpsysActivity())
+            editText1.setText(getForegroundPackageName() ?: "xx")
         }
     }
 
@@ -220,6 +221,7 @@ fun takeScreenshot(context: Context): Bitmap? {
     }
     return bitmap
 }
+
 fun dumpsysWindow(): String {
     val process = Runtime.getRuntime().exec("su")
     val outputStream = process.outputStream
@@ -237,6 +239,7 @@ fun dumpsysWindow(): String {
     }
     return stringBuilder.toString()
 }
+
 fun dumpsysActivity(): String {
     val process = Runtime.getRuntime().exec("su")
     val outputStream = process.outputStream
@@ -253,4 +256,28 @@ fun dumpsysActivity(): String {
         stringBuilder.append(line).append("\n")
     }
     return stringBuilder.toString()
+}
+
+fun getForegroundPackageName(): String? {
+    try {
+        val process = Runtime.getRuntime().exec("su")
+        val outputStream = process.outputStream
+        val inputStream = process.inputStream
+        outputStream.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
+        outputStream.flush()
+        outputStream.close()
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        var line: String?
+        val stringBuilder = StringBuilder()
+        while (reader.readLine().also { line = it } != null) {
+            stringBuilder.append(line).append("\n")
+        }
+        //return stringBuilder.toString()
+        // 解析包名
+        val packageNameRegex = ".*\\s+(\\S+)/(\\S+).*".toRegex()
+        val matchResult = packageNameRegex.find(stringBuilder.toString())
+        return matchResult?.groupValues?.get(1)
+    } catch (e: Exception) {
+        return e.toString()
+    }
 }
