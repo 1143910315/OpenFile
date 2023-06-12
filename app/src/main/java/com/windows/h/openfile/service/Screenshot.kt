@@ -90,7 +90,7 @@ class Screenshot : Service() {
                     //openPicture()
                     //open()
                 }
-            }, 0, 2000)
+            }, 0, 1000)
             running = true
         }
         return super.onStartCommand(intent, flags, startId)
@@ -138,34 +138,31 @@ class Screenshot : Service() {
                     }
 
                     tempFind.length() -> {
-                        handler.post {
-                            val file1 = File(this.filesDir, "picture_dir")
-                            file1.mkdir()
-                            lastFile?.delete()
-                            val file2 = File(this.filesDir, "picture_dir/" + tempFind.name)
-                            lastFile = file2
-                            try {
-                                contentResolver.openInputStream(tempFind.uri)?.use { input ->
-                                    FileOutputStream(file2).use { output ->
-                                        input.copyTo(output)
-                                    }
+                        val file1 = File(this.filesDir, "picture_dir")
+                        file1.mkdir()
+                        lastFile?.delete()
+                        val file2 = File(this.filesDir, "picture_dir/" + tempFind.name)
+                        lastFile = file2
+                        try {
+                            contentResolver.openInputStream(tempFind.uri)?.use { input ->
+                                FileOutputStream(file2).use { output ->
+                                    input.copyTo(output)
                                 }
-                                startActivity(
-                                    Intent(Intent.ACTION_VIEW)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        .setDataAndType(
-                                            FileProvider.getUriForFile(
-                                                this,
-                                                "com.windows.h.openfile.file.provider",
-                                                file2
-                                            ), "image/png"
-                                        )
-                                )
-                                step = 1
-                            } catch (_: Exception) {
-
                             }
+                            startActivity(
+                                Intent(Intent.ACTION_VIEW)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    .setDataAndType(
+                                        FileProvider.getUriForFile(
+                                            this,
+                                            "com.windows.h.openfile.file.provider",
+                                            file2
+                                        ), "image/png"
+                                    )
+                            )
+                            step = 1
+                        } catch (_: Exception) {
                         }
                     }
 
@@ -174,7 +171,7 @@ class Screenshot : Service() {
                     }
                 }
             }
-        } else if (step == 12) {
+        } else if (step == 13) {
             tap(160, 160)
             step++
         } else if (step == 14) {
@@ -188,16 +185,16 @@ class Screenshot : Service() {
                 }
             }
             step++
-        } else if (step == 16) {
+        } else if (step == 17) {
             tap(240, 240)
             step++
-        } else if (step == 20) {
-            tap(400, 760)
+        } else if (step == 25) {
+            tap(400, 750)
             step++
-        } else if (step == 28) {
+        } else if (step == 35) {
             open()
             step++
-        } else if (step >= 32) {
+        } else if (step >= 43) {
             find?.delete()
             find = null
             fileSize = 0
