@@ -11,7 +11,6 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.DisplayMetrics
 import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
@@ -37,7 +36,7 @@ class Screenshot : Service() {
     private lateinit var timer: Timer
     private lateinit var handler: Handler
     private lateinit var notificationManager: NotificationManager
-    private var running = false;
+    private var running = false
 
     companion object {
         private const val NOTIFICATION_ID = 1
