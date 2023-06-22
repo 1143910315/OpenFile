@@ -407,7 +407,7 @@ class Screenshot : Service() {
                 )
             )
         ) {
-            tap(400, 620)
+            tap(400, 640)
             return 91
         }
         if (checkColor(
