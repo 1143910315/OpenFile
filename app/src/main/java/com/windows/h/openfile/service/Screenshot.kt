@@ -13,17 +13,14 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import com.windows.h.openfile.R
 import java.io.BufferedOutputStream
-import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -34,7 +31,6 @@ class Screenshot : Service() {
 
     private var fileUri: Uri? = null
     private val binder = ServiceBinder()
-    private var step = 0
     private var find: DocumentFile? = null
     private var lastFile: File? = null
     private var fileSize: Long = 0
@@ -437,126 +433,8 @@ class Screenshot : Service() {
         process.destroy()
     }
 
-    private fun sendPicture() {
-        if (step == 0) {
-            val tempFind = find
-            if (tempFind == null) {
-                fileUri?.also { tempUri ->
-                    val documentFile = DocumentFile.fromTreeUri(this, tempUri)
-                    find = documentFile?.listFiles()?.find { file ->
-                        file.name?.endsWith(".png", true) ?: false
-                    }
-                }
-            } else {
-                when (fileSize) {
-                    0L -> {
-                        fileSize = tempFind.length()
-                    }
-
-                    tempFind.length() -> {
-                        val file1 = File(this.filesDir, "picture_dir")
-                        file1.mkdir()
-                        lastFile?.delete()
-                        val file2 = File(this.filesDir, "picture_dir/" + tempFind.name)
-                        lastFile = file2
-                        try {
-                            contentResolver.openInputStream(tempFind.uri)?.use { input ->
-                                FileOutputStream(file2).use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            startActivity(
-                                Intent(Intent.ACTION_VIEW)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    .setDataAndType(
-                                        FileProvider.getUriForFile(
-                                            this,
-                                            "com.windows.h.openfile.file.provider",
-                                            file2
-                                        ), "image/png"
-                                    )
-                            )
-                            step = 1
-                        } catch (_: Exception) {
-                        }
-                    }
-
-                    else -> {
-                        fileSize = tempFind.length()
-                    }
-                }
-            }
-        } else if (step == 13) {
-            tap(160, 160)
-            step++
-        } else if (step == 14) {
-            find?.also { tempFind ->
-                tempFind.name?.also { findName ->
-                    val get =
-                        "(.+)_(\\d+)_(\\d+)(.*)".toRegex().find(findName)?.groupValues?.get(2)
-                    get?.also { groupId ->
-                        input(groupId)
-                    }
-                }
-            }
-            step++
-        } else if (step == 17) {
-            tap(240, 240)
-            step++
-        } else if (step == 25) {
-            tap(400, 750)
-            step++
-        } else if (step == 35) {
-            open()
-            step++
-        } else if (step >= 43) {
-            find?.delete()
-            find = null
-            fileSize = 0
-            step = -5
-        } else {
-            step++
-        }
-    }
-
     fun processData(data: String) {
         fileUri = Uri.parse(data)
-    }
-
-    private fun openPicture() {
-        fileUri?.also { tempUri ->
-            val documentFile = DocumentFile.fromTreeUri(this, tempUri)
-            find = documentFile?.listFiles()?.find { file ->
-                file.name?.endsWith(".png", true) ?: false
-            }
-            find?.also { tempFind ->
-                val file1 = File(this.filesDir, "picture_dir")
-                file1.mkdir()
-                val file2 = File(this.filesDir, "picture_dir/" + tempFind.name)
-                try {
-                    contentResolver.openInputStream(tempFind.uri)?.use { input ->
-                        FileOutputStream(file2).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    startActivity(
-                        Intent(Intent.ACTION_VIEW)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            .setDataAndType(
-                                FileProvider.getUriForFile(
-                                    this,
-                                    "com.windows.h.openfile.file.provider",
-                                    file2
-                                ), "image/png"
-                            )
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
     }
 
     private fun printfExceptionToFile(e: Exception) {
@@ -619,27 +497,6 @@ class Screenshot : Service() {
     }
 }
 
-fun getForegroundPackageName(): String? {
-    try {
-        val process = Runtime.getRuntime().exec("su")
-        process.outputStream.use { output ->
-            output.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
-            output.write("exit\n".toByteArray())
-        }
-        val stringBuilder = StringBuilder()
-        BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                stringBuilder.append(line).append("\n")
-            }
-        }
-        // 解析包名
-        return ".*\\s+(\\S+)/(\\S+).*".toRegex().find(stringBuilder.toString())?.groupValues?.get(1)
-    } catch (e: Exception) {
-        return e.toString()
-    }
-}
-
 fun tap(x: Int, y: Int) {
     val process = Runtime.getRuntime().exec("su")
     process.outputStream.use { output ->
@@ -655,33 +512,6 @@ fun input(str: String) {
         val process = Runtime.getRuntime().exec("su")
         process.outputStream.use { output ->
             output.write("input text '$str'\n".toByteArray())
-            output.write("exit\n".toByteArray())
-        }
-        process.waitFor()
-        process.destroy()
-    } catch (_: Exception) {
-    }
-}
-
-fun home() {
-    try {
-        val keyCode = KeyEvent.KEYCODE_HOME
-        val process = Runtime.getRuntime().exec("su")
-        process.outputStream.use { output ->
-            output.write("input keyevent '$keyCode'\n".toByteArray())
-            output.write("exit\n".toByteArray())
-        }
-        process.waitFor()
-        process.destroy()
-    } catch (_: Exception) {
-    }
-}
-
-fun open() {
-    try {
-        val process = Runtime.getRuntime().exec("su")
-        process.outputStream.use { output ->
-            output.write("am start -n com.windows.h.openfile/com.windows.h.openfile.MainActivity\n".toByteArray())
             output.write("exit\n".toByteArray())
         }
         process.waitFor()
