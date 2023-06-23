@@ -13,14 +13,17 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import com.windows.h.openfile.R
 import java.io.BufferedOutputStream
+import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -39,6 +42,10 @@ class Screenshot : Service() {
     private lateinit var handler: Handler
     private lateinit var notificationManager: NotificationManager
     private var running = false
+    private val messageRegex = "([a-zA-Z]+)_(\\d+)_(\\d+)_(\\d+)\\.png".toRegex()
+    private var groupId = ""
+    private var messageId = ""
+    private var message = ""
 
     //1为mumu模拟器，2为夜神模拟器
     private val simulatorType = 2
@@ -167,20 +174,72 @@ class Screenshot : Service() {
                 84 -> {
                     stepId = sendSharePicture()
                 }
-            }
-            timer.schedule(object : TimerTask() {
-                override fun run() {
-                    // 执行处理代码
-                    //takeScreenshot()
-                    //sendPicture()
-                    //openPicture()
-                    //open()
-                    operate()
+
+                83 -> {
+                    stepId = inputWebsiteAddress()
                 }
-            }, 1000)
+
+                82 -> {
+                    stepId = checkOpenSuccess()
+                }
+
+                81 -> {
+                    stepId = openSetting()
+                }
+
+                80 -> {
+                    stepId = clearAppData()
+                }
+
+                79 -> {
+                    stepId = openQQBeforeConsentAgreement()
+                }
+
+                78 -> {
+                    stepId = consentAgreement()
+                }
+
+                77 -> {
+                    stepId = clickLogin()
+                }
+
+                76 -> {
+                    stepId = inputAccount()
+                }
+
+                75 -> {
+                    stepId = inputPassword()
+                }
+
+                74 -> {
+                    stepId = clickAgree()
+                }
+
+                73 -> {
+                    stepId = loginQQ()
+                }
+
+                72 -> {
+                    stepId = 88
+                }
+
+                in 66..71 -> {
+                    stepId++
+                }
+            }
         } catch (e: Exception) {
             printfExceptionToFile(e)
         }
+        timer.schedule(object : TimerTask() {
+            override fun run() {
+                // 执行处理代码
+                //takeScreenshot()
+                //sendPicture()
+                //openPicture()
+                //open()
+                operate()
+            }
+        }, 1000)
     }
 
     private fun checkFile(): Int {
@@ -190,8 +249,25 @@ class Screenshot : Service() {
             find = documentFile?.listFiles()?.find { file ->
                 val fileName = file.name
                 if (fileName != null) {
-                    return@find fileName.startsWith("output", false)
-                            && fileName.endsWith(".png", true)
+                    if (fileName.endsWith(".png", true)) {
+                        if (fileName.startsWith("msg", false)) {
+                            messageRegex.find(fileName)?.groupValues?.also { gv ->
+                                groupId = gv[2]
+                                messageId = gv[3]
+                                message = ""
+                                return@find true
+                            }
+                        }
+                        if (fileName.startsWith("gpt", false)) {
+                            messageRegex.find(fileName)?.groupValues?.also { gv ->
+                                groupId = gv[2]
+                                messageId = gv[3]
+                                message =
+                                    "http://shiyu.server.miracleforest.cn:14527/ai?group=$groupId&message=$messageId"
+                                return@find true
+                            }
+                        }
+                    }
                 }
                 return@find false
             }
@@ -266,7 +342,7 @@ class Screenshot : Service() {
                         ), "image/png"
                     )
             )
-            return 86
+            return 82
         } else {
             return checkFileId
         }
@@ -293,16 +369,16 @@ class Screenshot : Service() {
             } else {
                 tap(110, 110)
             }
-            find?.also { tempFind ->
-                tempFind.name?.also { findName ->
-                    val get =
-                        "(.+)_(\\d+)_(\\d+)(.*)".toRegex().find(findName)?.groupValues?.get(2)
-                    get?.also { groupId ->
-                        input(groupId)
-                    }
+            input(groupId)
+            return 85
+        } else {
+            getForegroundPackageName()?.also { foregroundPackageName ->
+                printfStringToFile("foreground", foregroundPackageName)
+                if (foregroundPackageName == "com.windows.h.openfile") {
+                    return 80
                 }
             }
-            return 85
+            checkBlocking()
         }
         return 86
     }
@@ -328,7 +404,11 @@ class Screenshot : Service() {
             } else {
                 tap(160, 160)
             }
-            return 84
+            return if (message == "") {
+                84
+            } else {
+                83
+            }
         }
         return 85
     }
@@ -442,7 +522,7 @@ class Screenshot : Service() {
             val documentFile = DocumentFile.fromTreeUri(this, tempFileUrl)
             val createFile = documentFile?.createFile(
                 "text/plain",
-                "exception_record" + System.currentTimeMillis() + ".txt"
+                "exception_record_" + System.currentTimeMillis() + ".txt"
             )
             // 转换异常堆栈信息为字符串
             val exceptionStackTrace = StringWriter().apply {
@@ -453,6 +533,31 @@ class Screenshot : Service() {
                     BufferedOutputStream(outputStream).use { bufferedOutputStream ->
                         OutputStreamWriter(bufferedOutputStream).use { outputStreamWriter ->
                             outputStreamWriter.write(exceptionStackTrace)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun printfStringToFile(fileName: String, plaintext: String) {
+        fileUri?.also { tempFileUrl ->
+            DocumentFile.fromTreeUri(this, tempFileUrl)?.also { documentFile ->
+                documentFile.listFiles().forEach { temp ->
+                    if (temp.name?.startsWith(fileName) == true && Math.random() < 0.1) {
+                        temp.delete()
+                    }
+                }
+                val createFile = documentFile.createFile(
+                    "text/plain",
+                    fileName + "_" + System.currentTimeMillis() + ".txt"
+                )
+                createFile?.also { tempCreateFile ->
+                    contentResolver.openOutputStream(tempCreateFile.uri)?.use { outputStream ->
+                        BufferedOutputStream(outputStream).use { bufferedOutputStream ->
+                            OutputStreamWriter(bufferedOutputStream).use { outputStreamWriter ->
+                                outputStreamWriter.write(plaintext)
+                            }
                         }
                     }
                 }
@@ -494,6 +599,155 @@ class Screenshot : Service() {
             }
         }
         return false
+    }
+
+    private fun checkBlocking() {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(113, 441, 27, 27, 31),
+                    ColorCheck(108, 441, 242, 240, 244),
+                    ColorCheck(103, 439, 82, 81, 85)
+                )
+            )
+        ) {
+            tap(230, 537)
+        }
+    }
+
+    private fun inputWebsiteAddress(): Int {
+        //320,940..530
+        for (i in 940 downTo 530 step 30) {
+            if (checkColor(
+                    arrayListOf(
+                        ColorCheck(320, i, 245, 245, 245),
+                    )
+                )
+            ) {
+                tap(320, i)
+                input(message)
+                return 84
+            }
+        }
+        return 83
+    }
+
+    private fun getForegroundPackageName(): String? {
+        val process = Runtime.getRuntime().exec("su")
+        process.outputStream.use { output ->
+            output.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
+            output.write("exit\n".toByteArray())
+        }
+        val stringBuilder = StringBuilder()
+        BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                stringBuilder.append(line).append("\n")
+            }
+        }
+        // 解析包名
+        return ".*\\s+(\\S+)/(\\S+).*".toRegex().find(stringBuilder.toString())?.groupValues?.get(1)
+    }
+
+    private fun checkOpenSuccess(): Int {
+        getForegroundPackageName()?.also { foregroundPackageName ->
+            //printfStringToFile("foreground", foregroundPackageName)
+            if (foregroundPackageName == "com.tencent.mobileqq") {
+                return 86
+            } else if (foregroundPackageName == "com.windows.h.openfile") {
+                return 80
+            }
+        }
+        return 82
+    }
+
+    private fun openSetting(): Int {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .setData(Uri.fromParts("package", "com.tencent.mobileqq", null))
+        )
+        return 80
+    }
+
+    private fun clearAppData(): Int {
+        val appPackName = "com.tencent.mobileqq"
+        val process = Runtime.getRuntime().exec("su")
+        process.outputStream.use { output ->
+            output.write("pm clear $appPackName\n".toByteArray())
+            output.write("exit\n".toByteArray())
+        }
+        process.waitFor()
+        process.destroy()
+        return 79
+    }
+
+    private fun openQQBeforeConsentAgreement(): Int {
+        openApp("com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity")
+        return 78
+    }
+
+    private fun consentAgreement(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(148, 455, 61, 129, 231),
+                )
+            )
+        ) {
+            tap(350, 600)
+            return 77
+        }
+        return 78
+    }
+
+    private fun clickLogin(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(460, 860, 0, 153, 255),
+                )
+            )
+        ) {
+            tap(460, 860)
+            return 76
+        }
+        return 77
+    }
+
+    private fun inputAccount(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(420, 230, 242, 243, 247),
+                )
+            )
+        ) {
+            tap(420, 230)
+            input("1125076172")
+            return 75
+        }
+        return 76
+    }
+
+    private fun inputPassword(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(420, 320, 242, 243, 247),
+                )
+            )
+        ) {
+            tap(420, 320)
+            input("shiyu081015")
+            return 74
+        }
+        return 75
+    }
+
+    private fun clickAgree(): Int {
+        tap(160, 400)
+        return 73
+    }
+
+    private fun loginQQ(): Int {
+        tap(250, 550)
+        return 66
     }
 }
 
