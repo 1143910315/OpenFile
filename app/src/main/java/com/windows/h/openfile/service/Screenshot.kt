@@ -42,7 +42,8 @@ class Screenshot : Service() {
     private lateinit var handler: Handler
     private lateinit var notificationManager: NotificationManager
     private var running = false
-    private val messageRegex = "([a-zA-Z]+)_(\\d+)_(\\d+)_(\\d+)\\.png".toRegex()
+    private val messageRegex = "([a-zA-Z]+)_(-?\\d+)_(-?\\d+)_(-?\\d+)\\.png".toRegex()
+    private val packageRegex = ".*\\s+(\\S+)/(\\S+).*".toRegex()
     private var groupId = ""
     private var messageId = ""
     private var message = ""
@@ -645,7 +646,7 @@ class Screenshot : Service() {
             }
         }
         // 解析包名
-        return ".*\\s+(\\S+)/(\\S+).*".toRegex().find(stringBuilder.toString())?.groupValues?.get(1)
+        return packageRegex.find(stringBuilder.toString())?.groupValues?.get(1)
     }
 
     private fun checkOpenSuccess(): Int {
