@@ -381,7 +381,7 @@ class Screenshot : Service() {
             }
             checkBlocking()
         }
-        return 86
+        return checkNoLogin()
     }
 
     private fun selectFirst(): Int {
@@ -749,6 +749,18 @@ class Screenshot : Service() {
     private fun loginQQ(): Int {
         tap(250, 550)
         return 66
+    }
+
+    private fun checkNoLogin(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(228, 111, 255, 0, 0),
+                )
+            )
+        ) {
+            return 76
+        }
+        return 86
     }
 }
 
