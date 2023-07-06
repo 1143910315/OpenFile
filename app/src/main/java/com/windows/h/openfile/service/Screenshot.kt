@@ -754,7 +754,7 @@ class Screenshot : Service() {
     private fun checkNoLogin(): Int {
         if (checkColor(
                 arrayListOf(
-                    ColorCheck(228, 111, 255, 0, 0),
+                    ColorCheck(228, 111, 234, 28, 39),
                 )
             )
         ) {
