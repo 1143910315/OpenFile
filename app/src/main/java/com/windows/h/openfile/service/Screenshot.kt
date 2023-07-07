@@ -760,6 +760,15 @@ class Screenshot : Service() {
         ) {
             return 76
         }
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(148, 455, 61, 129, 231),
+                )
+            )
+        ) {
+            tap(350, 600)
+            return 77
+        }
         return 86
     }
 }
