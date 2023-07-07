@@ -762,12 +762,12 @@ class Screenshot : Service() {
         }
         if (checkColor(
                 arrayListOf(
-                    ColorCheck(148, 455, 61, 129, 231),
+                    ColorCheck(341, 622, 109, 182, 255),
                 )
             )
         ) {
             tap(350, 600)
-            return 77
+            return 76
         }
         return 86
     }
