@@ -227,6 +227,26 @@ class Screenshot : Service() {
                 in 66..71 -> {
                     stepId++
                 }
+
+                65 -> {
+                    stepId = changeLoginType()
+                }
+
+                64 -> {
+                    stepId = inputAccount2()
+                }
+
+                63 -> {
+                    stepId = inputPassword2()
+                }
+
+                62 -> {
+                    stepId = clickAgree2()
+                }
+
+                61 -> {
+                    stepId = loginQQ2()
+                }
             }
         } catch (e: Exception) {
             printfExceptionToFile(e)
@@ -724,6 +744,15 @@ class Screenshot : Service() {
             input("1125076172")
             return 75
         }
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(74, 834, 234, 28, 38),
+                )
+            )
+        ) {
+            tap(74, 834)
+            return 64
+        }
         return 76
     }
 
@@ -770,6 +799,75 @@ class Screenshot : Service() {
             return 76
         }
         return 86
+    }
+
+    private fun changeLoginType(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(74, 834, 234, 28, 39),
+                )
+            )
+        ) {
+            tap(74, 834)
+            return 64
+        }
+        return 65
+    }
+
+    private fun inputAccount2(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(315, 275, 255, 255, 255),
+                    ColorCheck(270, 270, 220, 220, 220),
+                )
+            )
+        ) {
+            tap(270, 270)
+            input("1125076172")
+            return 63
+        }
+        return 64
+    }
+
+    private fun inputPassword2(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(319, 351, 255, 255, 255),
+                    ColorCheck(260, 350, 206, 206, 206),
+                )
+            )
+        ) {
+            tap(260, 350)
+            input("shiyu081015")
+            return 62
+        }
+        return 63
+    }
+
+    private fun clickAgree2(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(138, 408, 242, 243, 247),
+                )
+            )
+        ) {
+            tap(138, 408)
+            return 61
+        }
+        return 62
+    }
+
+    private fun loginQQ2(): Int {
+        if (checkColor(
+                arrayListOf(
+                    ColorCheck(327, 477, 242, 243, 247),
+                )
+            )
+        ) {
+            tap(327, 477)
+            return 66
+        }
+        return 61
     }
 }
 
