@@ -29,6 +29,7 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.Timer
 import java.util.TimerTask
+import kotlin.random.Random
 
 class Screenshot : Service() {
 
@@ -247,6 +248,14 @@ class Screenshot : Service() {
                 61 -> {
                     stepId = loginQQ2()
                 }
+
+                60 -> {
+                    stepId = 84
+                }
+
+                59 -> {
+                    stepId++
+                }
             }
         } catch (e: Exception) {
             printfExceptionToFile(e)
@@ -344,7 +353,10 @@ class Screenshot : Service() {
             val file1 = File(this.filesDir, "picture_dir")
             file1.mkdir()
             lastFile?.delete()
-            val file2 = File(this.filesDir, "picture_dir/" + tempFind.name)
+            val file2 = File(
+                this.filesDir,
+                "picture_dir/" + Random(System.currentTimeMillis()).nextInt() + "_" + tempFind.name
+            )
             lastFile = file2
             contentResolver.openInputStream(tempFind.uri)?.use { input ->
                 FileOutputStream(file2).use { output ->
@@ -377,7 +389,7 @@ class Screenshot : Service() {
             )
         } else {
             arrayListOf(
-                ColorCheck(27, 104, 191, 191, 191),
+                ColorCheck(27, 104, 172, 172, 172),
                 ColorCheck(23, 103, 255, 255, 255)
             )
         }
@@ -646,7 +658,7 @@ class Screenshot : Service() {
             ) {
                 tap(320, i)
                 input(message)
-                return 84
+                return 59
             }
         }
         return 83
@@ -655,7 +667,7 @@ class Screenshot : Service() {
     private fun getForegroundPackageName(): String? {
         val process = Runtime.getRuntime().exec("su")
         process.outputStream.use { output ->
-            output.write("dumpsys activity | grep mFocusedApp\n".toByteArray())
+            output.write("dumpsys activity | grep mCurrentFocus\n".toByteArray())
             output.write("exit\n".toByteArray())
         }
         val stringBuilder = StringBuilder()
@@ -847,7 +859,7 @@ class Screenshot : Service() {
     private fun clickAgree2(): Int {
         if (checkColor(
                 arrayListOf(
-                    ColorCheck(138, 408, 242, 243, 247),
+                    ColorCheck(138, 408, 245, 245, 245),
                 )
             )
         ) {
@@ -860,7 +872,7 @@ class Screenshot : Service() {
     private fun loginQQ2(): Int {
         if (checkColor(
                 arrayListOf(
-                    ColorCheck(327, 477, 242, 243, 247),
+                    ColorCheck(327, 477, 0, 153, 255),
                 )
             )
         ) {
