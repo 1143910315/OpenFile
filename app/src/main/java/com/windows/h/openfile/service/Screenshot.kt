@@ -352,10 +352,10 @@ class Screenshot : Service() {
         if (tempFind != null) {
             val file1 = File(this.filesDir, "picture_dir")
             file1.mkdir()
-            lastFile?.delete()
+            //lastFile?.delete()
             val file2 = File(
                 this.filesDir,
-                "picture_dir/" + Random(System.currentTimeMillis()).nextInt() + "_" + tempFind.name
+                "picture_dir/" + (1..1000).random() + "_" + tempFind.name
             )
             lastFile = file2
             contentResolver.openInputStream(tempFind.uri)?.use { input ->
